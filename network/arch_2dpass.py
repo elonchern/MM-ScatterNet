@@ -165,8 +165,9 @@ class get_model(LightningBaseModel):
         data_dict = self.model_3d(data_dict)
 
         # training with 2D network
-        # if self.training and not self.baseline_only:
-        data_dict = self.model_2d(data_dict)
-        data_dict = self.fusion(data_dict)
+      
+        if not self.trainer.testing and not self.baseline_only:
+            data_dict = self.model_2d(data_dict)
+            data_dict = self.fusion(data_dict)
 
         return data_dict

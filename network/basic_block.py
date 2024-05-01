@@ -140,9 +140,9 @@ class ResNetFCN(nn.Module):
         output = torch.cat((layer1_out,layer2_out,layer3_out,layer4_out), dim=1)
         logits = self.classifier(output)
         
-        data_dict['img_logits'] = logits
+        data_dict['img_logits'] = logits # [B, 20, 320, 480]
        
-        ce_loss = self.CE_Loss(logits,data_dict['img_2_label'].squeeze(dim=1))
+        ce_loss = self.CE_Loss(logits,data_dict['img_2_label'].squeeze(dim=1)) # [B, 1 , 320, 480]
 
         
         

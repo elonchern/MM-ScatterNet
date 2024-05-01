@@ -32,6 +32,7 @@ class LightningBaseModel(pl.LightningModule):
         self.train_acc = Accuracy()
         self.val_acc = Accuracy(compute_on_step=False)
         self.val_iou = IoU(self.args['dataset_params'], compute_on_step=False)
+        self.val_iou_img = IoU(self.args['dataset_params'], compute_on_step=False)
 
         if self.args['submit_to_server']:
             self.submit_dir = os.path.dirname(self.args['checkpoint']) + '/submit_' + datetime.now().strftime(
@@ -118,6 +119,8 @@ class LightningBaseModel(pl.LightningModule):
     def validation_step(self, data_dict, batch_idx):
         indices = data_dict['indices']
         raw_labels = data_dict['raw_labels'].squeeze(1).cpu()
+        img_labels = data_dict['img_2_label'].squeeze(dim=1).view(-1).cpu()
+       
         origin_len = data_dict['origin_len']
         vote_logits = torch.zeros((len(raw_labels), self.num_classes))
         data_dict = self.forward(data_dict)
@@ -134,6 +137,8 @@ class LightningBaseModel(pl.LightningModule):
                 
             
         prediction = vote_logits.argmax(1)
+        
+        prediction_img = data_dict['img_logits'].argmax(1).view(-1)
 
         if self.ignore_label != 0:
             prediction = prediction[raw_labels != self.ignore_label]
@@ -144,9 +149,11 @@ class LightningBaseModel(pl.LightningModule):
         self.val_acc(prediction, raw_labels)
         self.log('val/acc', self.val_acc, on_epoch=True)
         self.val_iou(
-            prediction.cpu().detach().numpy(),
-            raw_labels.cpu().detach().numpy(),
+            prediction.cpu().detach().numpy(), # [N,]
+            raw_labels.cpu().detach().numpy(), # [N,]
          )
+        self.val_iou_img(prediction_img.cpu().detach().numpy(),
+                         img_labels.cpu().detach().numpy())
 
         return data_dict['loss']
 
@@ -270,17 +277,25 @@ class LightningBaseModel(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         iou, best_miou = self.val_iou.compute()
+        iou_img, best_miou_img = self.val_iou_img.compute()
         mIoU = np.nanmean(iou)
+        mIoU_img = np.nanmean(iou_img)
         str_print = ''
+        str_print_img = ''
         self.log('val/mIoU', mIoU, on_epoch=True)
         self.log('val/best_miou', best_miou, on_epoch=True)
+        self.log('val/mIoU_img', mIoU_img, on_epoch=True)
+        self.log('val/best_miou_img', best_miou_img, on_epoch=True)
         str_print += 'Validation per class iou: '
 
         for class_name, class_iou in zip(self.val_iou.unique_label_str, iou):
             str_print += '\n%s : %.2f%%' % (class_name, class_iou * 100)
-
+        for class_name, class_iou in zip(self.val_iou_img.unique_label_str, iou_img):
+                    str_print_img += '\n%s : %.2f%%' % (class_name, class_iou * 100)
         str_print += '\nCurrent val miou is %.3f while the best val miou is %.3f' % (mIoU * 100, best_miou * 100)
+        str_print_img += '\nCurrent val image miou is %.3f while the best image val miou is %.3f' % (mIoU_img * 100, best_miou_img * 100)
         self.print(str_print)
+        self.print(str_print_img)
 
     def test_epoch_end(self, outputs):
         if not self.args['submit_to_server']:
