@@ -183,8 +183,8 @@ class LightningBaseModel(pl.LightningModule):
         pr = F.softmax(data_dict['img_logits'].squeeze(0).permute(1,2,0),dim = -1).cpu().numpy()
         pr = pr.argmax(axis=-1)
         img_labels = data_dict['img_2_label'].squeeze().cpu().numpy().astype(np.int32)
-        # mask = img_labels !=0
-        # pr = pr * mask # [320,480]
+        mask = img_labels !=0
+        pr = pr * mask # [320,480]
         pr = np.expand_dims(pr, axis=2)
         img_labels = np.expand_dims(img_labels, axis=2)
         

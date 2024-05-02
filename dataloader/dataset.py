@@ -235,9 +235,16 @@ class point_image_dataset_semkitti(data.Dataset):
         if np.random.rand() < self.flip2d:
             image = np.ascontiguousarray(np.fliplr(image))
             img_indices[:, 1] = image.shape[1] - 1 - img_indices[:, 1]
-            image_2_label = np.swapaxes(image_2_label, 0, 2)
-            image_2_label = np.ascontiguousarray(np.fliplr(image_2_label))
-            image_2_label = np.swapaxes(image_2_label, 0, 2)
+            # 将标签调整为 [320, 480]
+            label_reshaped = image_2_label.squeeze()  # 变为 [320, 480]
+            label_flipped = np.ascontiguousarray(np.fliplr(label_reshaped))
+            # 恢复标签的原始维度 [1, 320, 480]
+            image_2_label = label_flipped.reshape(1, 320, 480)
+            
+            
+            # image_2_label = image_2_label.transpose(1, 2, 0) # np.swapaxes(image_2_label, 0, 2)
+            # image_2_label = np.ascontiguousarray(np.fliplr(image_2_label))
+            # image_2_label = image_2_label.transpose(2, 0, 1)# np.swapaxes(image_2_label, 0, 2)
 
         # normalize image
         if self.image_normalizer:

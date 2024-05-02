@@ -8,7 +8,7 @@
 
 import os
 import yaml
-os.environ["CUDA_VISIBLE_DEVICES"] = '3,'
+os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
 import torch
 import datetime
 import importlib
@@ -41,7 +41,7 @@ def load_yaml(file_name):
 def parse_config():
     parser = ArgumentParser()
     # general
-    parser.add_argument('--gpu', type=int, nargs='+', default=(3,), help='specify gpu devices')
+    parser.add_argument('--gpu', type=int, nargs='+', default=(3,4), help='specify gpu devices')
     parser.add_argument("--seed", default=0, type=int)
     parser.add_argument('--config_path', default='config/2DPASS-semantickitti.yaml')
     # training

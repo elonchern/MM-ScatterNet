@@ -121,13 +121,12 @@ class SemanticKITTI(data.Dataset):
             if self.config['dataset_params']['ignore_label'] != 0:
                 annotated_data -= 1
                 annotated_data[annotated_data == -1] = self.config['dataset_params']['ignore_label']
-
         
         proj_matrix = self.proj_matrix[int(self.im_idx[index][-22:-20])]
 
         data_dict = {}
         data_dict['xyz'] = points
-        data_dict['labels'] = annotated_data.astype(np.uint8) #weak_label.astype(np.uint8) # annotated_data.astype(np.uint8)
+        data_dict['labels'] = weak_label.astype(np.uint8) # weak_label.astype(np.uint8) # annotated_data.astype(np.uint8)
         data_dict['image_2_labels'] = image_2_label.astype(np.uint8)
         data_dict['instance_label'] = instance_label
         data_dict['signal'] = raw_data[:, 3:4]
