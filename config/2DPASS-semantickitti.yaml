@@ -79,11 +79,11 @@ dataset_params:
     batch_size: 8
     shuffle: True
     num_workers: 8
-    rotate_aug: False
-    flip_aug: False
-    scale_aug: False
-    transform_aug: False
-    dropout_aug: False
+    rotate_aug: True
+    flip_aug: True
+    scale_aug: True
+    transform_aug: True
+    dropout_aug: True
     crop: False
 
   val_data_loader:

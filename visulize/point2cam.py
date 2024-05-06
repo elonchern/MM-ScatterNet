@@ -129,7 +129,7 @@ def point2cam_label(proj_label, image,img_filename):  #
     b_rgb = image
     b_rgb = image.swapaxes(0,2)
     b_rgb = b_rgb.swapaxes(0,1)
-    print("b_rgb={}".format(b_rgb.shape))
+    
     b_rgb[:,:,0] = (b_rgb[:,:,0]*0.229 + 0.485)
     b_rgb[:,:,1] = (b_rgb[:,:,1]*0.224+ 0.456)
     b_rgb[:,:,2] = (b_rgb[:,:,2]*0.225 + 0.406)

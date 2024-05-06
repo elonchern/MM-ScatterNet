@@ -116,18 +116,19 @@ class SemanticKITTI(data.Dataset):
             annotated_data = annotated_data & 0xFFFF  # delete high 16 digits binary
             annotated_data = np.vectorize(self.learning_map.__getitem__)(annotated_data)
             weak_label = np.load(self.im_idx[index].replace('velodyne', 'weak_labels')[:-3] + 'npy').reshape((-1, 1))
-            image_2_label = np.load(self.im_idx[index].replace('velodyne', 'image_2_labels')[:-3] + 'npy') # [1, 370, 1226]
+            image_seg = np.load(self.im_idx[index].replace('velodyne', 'image_2_labels')[:-3] + 'npy') # [1, 370, 1226]
 
             if self.config['dataset_params']['ignore_label'] != 0:
                 annotated_data -= 1
                 annotated_data[annotated_data == -1] = self.config['dataset_params']['ignore_label']
         
+        
         proj_matrix = self.proj_matrix[int(self.im_idx[index][-22:-20])]
 
         data_dict = {}
         data_dict['xyz'] = points
-        data_dict['labels'] = weak_label.astype(np.uint8) # weak_label.astype(np.uint8) # annotated_data.astype(np.uint8)
-        data_dict['image_2_labels'] = image_2_label.astype(np.uint8)
+        data_dict['labels'] = annotated_data.astype(np.uint8) # weak_label.astype(np.uint8) # annotated_data.astype(np.uint8)
+        data_dict['image_seg'] =  image_seg.astype(np.uint8)
         data_dict['instance_label'] = instance_label
         data_dict['signal'] = raw_data[:, 3:4]
         data_dict['origin_len'] = origin_len
@@ -210,9 +211,19 @@ class nuScenes(data.Dataset):
 
     def loadImage(self, index, image_id):
         cam_sample_token = self.token_list[index]['cam_token'][image_id]
+        lidar_sample_token = self.token_list[index]['lidar_token']
+        
         cam = self.nusc.get('sample_data', cam_sample_token)
         image = Image.open(os.path.join(self.nusc.dataroot, cam['filename']))
-        return image, cam_sample_token
+
+        image_path = [self.nusc.dataroot, 'imageseg', 'v1.0-trainval']
+        imageseg_filename = lidar_sample_token + '.npz'
+        imageseg_path = os.path.join(*image_path, imageseg_filename)
+        total_imageseg = np.load(imageseg_path)
+        
+        imageseg = total_imageseg[f'idx_{image_id}']
+              
+        return image, imageseg, cam_sample_token
 
     def get_available_scenes(self):
         # only for check if all the files are available
@@ -259,7 +270,7 @@ class nuScenes(data.Dataset):
 
         # get image feature
         image_id = np.random.randint(6)
-        image, cam_sample_token = self.loadImage(index, image_id)
+        image, image_seg, cam_sample_token = self.loadImage(index, image_id)
 
         cam_path, boxes_front_cam, cam_intrinsic = self.nusc.get_sample_data(cam_sample_token)
         pointsensor = self.nusc.get('sample_data', lidar_sample_token)
@@ -290,6 +301,7 @@ class nuScenes(data.Dataset):
         data_dict['labels'] = sem_label.astype(np.uint8)
         data_dict['signal'] = pointcloud[:, 3:4]
         data_dict['origin_len'] = len(pointcloud)
+        data_dict['image_seg'] = image_seg
 
         return data_dict, lidar_sample_token
 

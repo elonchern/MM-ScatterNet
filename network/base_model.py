@@ -110,6 +110,7 @@ class LightningBaseModel(pl.LightningModule):
                        data_dict['labels'][data_dict['labels'] != self.ignore_label])
         self.log('train/acc', self.train_acc, on_epoch=True)
         self.log('train/loss', data_dict['loss'])
+        self.log('train/kd_loss', data_dict['xm_loss'])
         # self.log('train/loss_main_ce', data_dict['loss_main_ce'])
         # self.log('train/loss_main_lovasz', data_dict['loss_main_lovasz'])
 
@@ -119,7 +120,7 @@ class LightningBaseModel(pl.LightningModule):
     def validation_step(self, data_dict, batch_idx):
         indices = data_dict['indices']
         raw_labels = data_dict['raw_labels'].squeeze(1).cpu()
-        img_labels = data_dict['img_2_label'].squeeze(dim=1).view(-1).cpu()
+        img_labels = data_dict['image_seg'].squeeze(dim=1).view(-1).cpu()
        
         origin_len = data_dict['origin_len']
         vote_logits = torch.zeros((len(raw_labels), self.num_classes))
@@ -197,10 +198,10 @@ class LightningBaseModel(pl.LightningModule):
         # image = Image.blend(old_img, image, 1)  
         root = '/data/xzy/elon/'
         basename = os.path.basename(path).split('.')[0]
-        filename = os.path.join(root, 'seg', basename + '_our_pred' + '.png')
-        point2cam_label(pr, image[0], filename)  
-        filename = os.path.join(root, 'seg', basename + '_gt' + '.png')
-        point2cam_label(img_labels, image[0], filename)  
+        filename = os.path.join(root, 'seg2', basename + '_our_pred' + '.png')
+        # point2cam_label(pr, image[0], filename)  
+        filename = os.path.join(root, 'seg2', basename + '_gt' + '.png')
+        # point2cam_label(img_labels, image[0], filename)  
         # image.save(filename)  
         
         # gt_img =  np.reshape(np.array(colors_map, np.uint8)[np.reshape(img_labels, [-1])], [H, W, -1])

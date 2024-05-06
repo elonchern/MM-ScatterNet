@@ -119,21 +119,23 @@ class xModalKD(nn.Module):
         )
         loss += xm_loss * self.lambda_xm / self.num_scales
 
-        return loss, fuse_feat
+        return loss, xm_loss, fuse_feat
 
     def forward(self, data_dict):
         loss = 0
+        xm_total_loss = 0
         img_seg_feat = []
 
         for idx in range(self.num_scales):
-            singlescale_loss, fuse_feat = self.fusion_to_single_KD(data_dict, idx)
+            singlescale_loss,xm_loss, fuse_feat = self.fusion_to_single_KD(data_dict, idx)
             img_seg_feat.append(fuse_feat)
             loss += singlescale_loss
-
+            xm_total_loss += xm_loss
+            
         img_seg_logits = self.classifier(torch.cat(img_seg_feat, 1))
         loss += self.seg_loss(img_seg_logits, data_dict['img_label'])
         data_dict['loss'] += loss
-
+        data_dict['xm_loss'] = xm_total_loss
         return data_dict
 
 

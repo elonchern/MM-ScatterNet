@@ -51,6 +51,7 @@ class ResNetFCN(nn.Module):
         else:
             raise NotImplementedError("invalid backbone: {}".format(backbone))
         self.hiden_size = config['model_params']['hiden_size']
+        self.num_classes = config['model_params']['num_classes']
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False)
         self.conv1.weight.data = net.conv1.weight.data
         self.bn1 = net.bn1
@@ -90,7 +91,7 @@ class ResNetFCN(nn.Module):
         )
         
         self.classifier = nn.Sequential(
-            nn.Conv2d(in_channels=64*4, out_channels=20, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=64*4, out_channels=self.num_classes, kernel_size=3, padding=1),
         )
         
         self.ce_loss = nn.CrossEntropyLoss(weight=seg_labelweights, ignore_index=config['dataset_params']['ignore_label'])
@@ -142,15 +143,12 @@ class ResNetFCN(nn.Module):
         
         data_dict['img_logits'] = logits # [B, 20, 320, 480]
        
-        ce_loss = self.CE_Loss(logits,data_dict['img_2_label'].squeeze(dim=1)) # [B, 1 , 320, 480]
+        ce_loss = self.CE_Loss(logits,data_dict['image_seg'].squeeze(dim=1)) # [B, 1 , 320, 480]
 
-        
+        # ce_loss = self.CE_Loss(logits,data_dict['proj_label'].squeeze(dim=3))
         
         data_dict['loss'] += ce_loss 
         
-
-
-
 
         process_keys = [k for k in data_dict.keys() if k.find('img_scale') != -1]
         img_indices = data_dict['img_indices']

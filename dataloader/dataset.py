@@ -146,7 +146,7 @@ class point_image_dataset_semkitti(data.Dataset):
         # load 2D data
         image = data['img']
         proj_matrix = data['proj_matrix']
-        image_2_label = data['image_2_labels']
+        image_seg = data['image_seg']
 
         # project points into image
         keep_idx = xyz[:, 0] > 0  # only keep point in front of the vehicle
@@ -214,7 +214,7 @@ class point_image_dataset_semkitti(data.Dataset):
 
             # crop image
             image = image.crop((left, top, right, bottom))
-            image_2_label = image_2_label[:, top:bottom, left:right]
+            image_seg = image_seg[:, top:bottom, left:right]
             points_img = points_img[keep_idx]
             points_img[:, 0] -= top
             points_img[:, 1] -= left
@@ -236,15 +236,11 @@ class point_image_dataset_semkitti(data.Dataset):
             image = np.ascontiguousarray(np.fliplr(image))
             img_indices[:, 1] = image.shape[1] - 1 - img_indices[:, 1]
             # 将标签调整为 [320, 480]
-            label_reshaped = image_2_label.squeeze()  # 变为 [320, 480]
+            label_reshaped = image_seg.squeeze()  # 变为 [320, 480]
             label_flipped = np.ascontiguousarray(np.fliplr(label_reshaped))
             # 恢复标签的原始维度 [1, 320, 480]
-            image_2_label = label_flipped.reshape(1, 320, 480)
+            image_seg = label_flipped.reshape(1, 320, 480)
             
-            
-            # image_2_label = image_2_label.transpose(1, 2, 0) # np.swapaxes(image_2_label, 0, 2)
-            # image_2_label = np.ascontiguousarray(np.fliplr(image_2_label))
-            # image_2_label = image_2_label.transpose(2, 0, 1)# np.swapaxes(image_2_label, 0, 2)
 
         # normalize image
         if self.image_normalizer:
@@ -252,7 +248,12 @@ class point_image_dataset_semkitti(data.Dataset):
             mean = np.asarray(mean, dtype=np.float32)
             std = np.asarray(std, dtype=np.float32)
             image = (image - mean) / std
-
+        
+        
+        # ------------ 可视化点投影到图像上 ----------- #
+        proj_label = np.zeros((image.shape[0], image.shape[1],1), dtype=np.float32)
+        proj_label[img_indices[:,0],img_indices[:,1]] = labels[point2img_index]
+        
         data_dict = {}
         data_dict['point_feat'] = feat
         data_dict['point_label'] = labels
@@ -268,8 +269,8 @@ class point_image_dataset_semkitti(data.Dataset):
         data_dict['img_indices'] = img_indices
         data_dict['img_label'] = img_label
         data_dict['point2img_index'] = point2img_index
-        
-        data_dict['img_2_label'] = image_2_label
+        data_dict['proj_label'] = proj_label
+        data_dict['image_seg'] = image_seg
 
         return data_dict
 
@@ -602,6 +603,8 @@ class point_image_dataset_nus(data.Dataset):
         # load 2D data
         image = data['img']
         calib_infos = data['calib_infos']
+        image_seg = data['image_seg']
+        
 
         ref_pc = xyz.copy()
         ref_labels = labels.copy()
@@ -678,6 +681,10 @@ class point_image_dataset_nus(data.Dataset):
 
             # resize image
             image = image.resize(self.resize, Image.BILINEAR)
+            
+            # resize image segmentation label
+            image_seg = Image.fromarray(image_seg[0]).resize(self.resize[::-1], Image.NEAREST)
+            image_seg = np.expand_dims(image_seg, axis=0)
 
         img_indices = points_img.astype(np.int64)
 
@@ -691,13 +698,21 @@ class point_image_dataset_nus(data.Dataset):
         if np.random.rand() < self.flip2d:
             image = np.ascontiguousarray(np.fliplr(image))
             img_indices[:, 1] = image.shape[1] - 1 - img_indices[:, 1]
-
+            image_seg = np.swapaxes(image_seg, 0, 2) # [1, 320,480]
+            image_seg = np.ascontiguousarray(np.fliplr(image_seg))
+            image_seg = np.swapaxes(image_seg, 0, 2)
+            
         # normalize image
         if self.image_normalizer:
             mean, std = self.image_normalizer
             mean = np.asarray(mean, dtype=np.float32)
             std = np.asarray(std, dtype=np.float32)
             image = (image - mean) / std
+            
+        # ------------ 可视化点投影到图像上 ----------- #
+        proj_label = np.zeros((image.shape[0], image.shape[1],1), dtype=np.float32)
+        proj_label[img_indices[:,0],img_indices[:,1]] = labels[point2img_index]            
+            
 
         data_dict = {}
         data_dict['point_feat'] = feat
@@ -715,6 +730,8 @@ class point_image_dataset_nus(data.Dataset):
         data_dict['img_label'] = img_label
         data_dict['point2img_index'] = point2img_index
 
+        data_dict['image_seg'] = image_seg
+        data_dict['proj_label'] = proj_label
         return data_dict
 
 
@@ -838,11 +855,11 @@ def collate_fn_default(data):
     path = [d['root'] for d in data]
 
     img = [torch.from_numpy(d['img']) for d in data]
-    img_2_label = [torch.from_numpy(d['img_2_label']) for d in data]
+   
     img_indices = [d['img_indices'] for d in data]
     img_label = [torch.from_numpy(d['img_label']) for d in data]
-    img_2_label = [torch.from_numpy(d['img_2_label']) for d in data]
    
+    image_seg = [torch.from_numpy(d['image_seg']) for d in data]
 
     b_idx = []
     for i in range(batch_size):
@@ -850,6 +867,7 @@ def collate_fn_default(data):
     points = [torch.from_numpy(d['point_feat']) for d in data]
     ref_xyz = [torch.from_numpy(d['ref_xyz']) for d in data]
     labels = [torch.from_numpy(d['point_label']) for d in data]
+    proj_label = [torch.from_numpy(d['proj_label']) for d in data]
 
     return {
         'points': torch.cat(points).float(),
@@ -862,10 +880,11 @@ def collate_fn_default(data):
         'indices': torch.cat(ref_indices).long(),
         'point2img_index': point2img_index,
         'img': torch.stack(img, 0).permute(0, 3, 1, 2),
-        'img_2_label': torch.stack(img_2_label, 0),
+        'image_seg': torch.stack(image_seg, 0),
         'img_indices': img_indices,
         'img_label': torch.cat(img_label, 0).squeeze(1).long(),
         'path': path,
+        'proj_label': torch.stack(proj_label,0).long(),
     }
 
 
